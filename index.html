@@ -1,0 +1,255 @@
+<html>
+<script>
+
+var IDTTruSeqOffset = 72;
+var IDTTruSeq = [
+			      /*72*/ "AATCCG",
+			      /*73*/ "AATGTT",
+			      /*74*/ "ACACGA",
+			      /*75*/ "ACAGAT",
+			      /*76*/ "AGATGT",
+			      /*77*/ "AGCACC",
+			      /*78*/ "AGCCAT",
+			      /*79*/ "AGGCTA",
+			      /*80*/ "ATAGCG",
+			      /*81*/ "ATCATT",
+			      /*82*/ "ATTGGC",
+			      /*83*/ "CAAGGA",
+			      /*84*/ "CACCTT",
+			      /*85*/ "CCATCC",
+			      /*86*/ "CCGACA",
+			      /*87*/ "CCTAAT",
+			      /*88*/ "CCTCTA",
+			      /*89*/ "CGACAC",
+			      /*90*/ "CGGATT",
+			      /*91*/ "CTAAGG",
+			      /*92*/ "GAACAG",
+			      /*93*/ "GACAGT",
+			      /*94*/ "GAGTTA",
+			      /*95*/ "GATGAA"
+			      ]
+
+var TruSeqMultiplexOffset = 1;
+var TruSeqMultiplex = [
+			      /*1*/ "ATCACG",
+			      /*2*/ "CGATGT",
+			      /*3*/ "TTAGGC",
+			      /*4*/ "TGACCA",
+			      /*5*/ "ACAGTG",
+			      /*6*/ "GCCAAT",
+			      /*7*/ "CAGATC",
+			      /*8*/ "ACTTGA",
+			      /*9*/ "GATCAG",
+			      /*10*/ "TAGCTT",
+			      /*11*/ "GGCTAC",
+			      /*12*/ "CTTGTA",
+			      /*13*/ "AGTCAA",
+			      /*14*/ "AGTTCC",
+			      /*15*/ "ATGTCA",
+			      /*16*/ "CCGTCC",
+			      /*17*/ "GTAGAG",
+			      /*18*/ "GTCCGC",
+			      /*19*/ "GTGAAA",
+			      /*20*/ "GTGGCC",
+			      /*21*/ "GTTTCG",
+			      /*22*/ "CGTACG",
+			      /*23*/ "GAGTGG",
+			      /*24*/ "GGTAGC",
+			      /*25*/ "ACTGAT",
+			      /*26*/ "ATGAGC",
+			      /*27*/ "ATTCCT",
+			      /*28*/ "CAAAAG",
+			      /*29*/ "CAACTA",
+			      /*30*/ "CACCGG",
+			      /*31*/ "CACGAT",
+			      /*32*/ "CACTCA",
+			      /*33*/ "CAGGCG",
+			      /*34*/ "CATGGC",
+			      /*35*/ "CATTTT",
+			      /*36*/ "CCAACA",
+			      /*37*/ "CGGAAT",
+			      /*38*/ "CTAGCT",
+			      /*39*/ "CTATAC",
+			      /*40*/ "CTCAGA",
+			      /*41*/ "GACGAC",
+			      /*42*/ "TAATCG",
+			      /*43*/ "TACAGC",
+			      /*44*/ "TATAAT",
+			      /*45*/ "TCATTC",
+			      /*46*/ "TCCCGA",
+			      /*47*/ "TCGAAG",
+			      /*48*/ "TCGGCA"
+				]
+
+function printSequences(){
+	
+	var mul = "TruSeq Multiplex\n";
+	
+	for(var i=0; i<TruSeqMultiplex.length; i++){
+		mul = mul+(TruSeqMultiplexOffset+i)+"\t"+TruSeqMultiplex[i]+"\n";
+	}
+	
+	document.getElementById("mul").innerHTML = mul;
+	
+	var idt = "IDT TruSeq\n";
+	
+	for(var i=0; i<IDTTruSeq.length; i++){
+		idt = idt+(IDTTruSeqOffset+i)+"\t"+IDTTruSeq[i]+"\n";
+	}
+	
+	document.getElementById("idt").innerHTML = idt;
+}
+
+function run(){
+	
+	var dist_type=0;
+	if (document.getElementById("dist_lev").checked){ dist_type=1; }
+	
+	var inLines = document.getElementById("in").value.split('\n');
+	var sequenceCount = inLines.length;
+	var pairs = new Array();
+	var doneList = new Array();
+	var out = "Index\tSequence\tType    \tIndex\tSequence\tType    \tDistance\n";
+	
+	for(var i=0; i<sequenceCount; i++){
+		
+		for(var j=0; j<sequenceCount; j++){		
+			if(inLines[i].trim().length>0 && inLines[j].trim().length>0 && i != j && doneList.indexOf(inLines[j].trim()+"."+inLines[i].trim()) == -1){
+				
+				var pair = new Object();
+				pair.a=inLines[i].trim();
+				pair.aNum=i+1;
+				pair.b=inLines[j].trim();
+				pair.bNum=j+1;
+				if(dist_type==0){
+					pair.distance=hamDistance(pair.a,pair.b);
+				} else {
+					pair.distance=levDistance(pair.a,pair.b);
+				}
+				
+				if(IDTTruSeq.indexOf(pair.a) > -1){			
+					pair.aType="[IDT-"+(IDTTruSeq.indexOf(pair.a)+IDTTruSeqOffset)+"] ";				
+				} else if(TruSeqMultiplex.indexOf(pair.a) > -1){	
+					pair.aType="[MUL-"+(TruSeqMultiplex.indexOf(pair.a)+TruSeqMultiplexOffset)+"] ";
+				}
+				
+				if(IDTTruSeq.indexOf(pair.b) > -1){			
+					pair.bType="[IDT-"+(IDTTruSeq.indexOf(pair.b)+IDTTruSeqOffset)+"] ";				
+				} else if(TruSeqMultiplex.indexOf(pair.b) > -1){	
+					pair.bType="[MUL-"+(TruSeqMultiplex.indexOf(pair.b)+TruSeqMultiplexOffset)+"] ";
+				}
+				
+				pairs.push(pair);
+				doneList.push(pair.a+"."+pair.b);
+			}
+		}
+		
+	}
+
+	pairs.sort(compare);
+
+	for(var i=0; i<pairs.length; i++){
+		out = out+pairs[i].aNum+"\t["+pairs[i].a+"]\t"+pairs[i].aType+"\t"+pairs[i].bNum+"\t["+pairs[i].b+"]\t"+pairs[i].bType+"\t"+pairs[i].distance+"\n";
+	}
+	
+	document.getElementById("out").innerHTML = out;
+}
+
+
+function compare(a,b) {
+	if (a.distance < b.distance)
+		return -1;
+	if (a.distance > b.distance)
+		return 1;
+	return 0;
+}
+
+function hamDistance(s, t) {
+	var d = 0;
+    for(var i=0; i < s.length; i++) {
+		if(t.charAt(i) && t.charAt(i) != s.charAt(i)) {
+			d++;
+		}
+	}
+    return d;
+}
+
+function levDistance(s, t) {
+    var d = []; //2d matrix
+
+    // Step 1
+    var n = s.length;
+    var m = t.length;
+
+    if (n == 0) return m;
+    if (m == 0) return n;
+
+    //Create an array of arrays in javascript (a descending loop is quicker)
+    for (var i = n; i >= 0; i--) d[i] = [];
+
+    // Step 2
+    for (var i = n; i >= 0; i--) d[i][0] = i;
+    for (var j = m; j >= 0; j--) d[0][j] = j;
+
+    // Step 3
+    for (var i = 1; i <= n; i++) {
+        var s_i = s.charAt(i - 1);
+
+        // Step 4
+        for (var j = 1; j <= m; j++) {
+
+            //Check the jagged ld total so far
+            if (i == j && d[i][j] > 4) return n;
+
+            var t_j = t.charAt(j - 1);
+            var cost = (s_i == t_j) ? 0 : 1; // Step 5
+
+            //Calculate the minimum
+            var mi = d[i - 1][j] + 1;
+            var b = d[i][j - 1] + 1;
+            var c = d[i - 1][j - 1] + cost;
+
+            if (b < mi) mi = b;
+            if (c < mi) mi = c;
+
+            d[i][j] = mi; // Step 6
+
+            //Damerau transposition
+            if (i > 1 && j > 1 && s_i == t.charAt(j - 2) && s.charAt(i - 2) == t_j) {
+                d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + cost);
+            }
+        }
+    }
+
+    // Step 7
+    return d[n][m];
+}
+
+</script>
+<body style="font-family: courier; font-size: 12pt;" onload="printSequences()">
+<table cellspacing="20">
+<tr style="vertical-align: top">
+<td>
+<form>
+Paste Sequences:<br/>
+<textarea rows="40" cols="20" id="in"></textarea><br/>
+<input type="radio" name="dist" checked="checked"/>Hamming</br>
+<input type="radio" name="dist" id="dist_lev"/>Levenshtein<br/>
+<input type="button" value="Get Distances" onclick="run()"></input>
+</form>
+</td>
+<td>
+<pre id="mul">
+</pre>
+</td>
+<td>
+<pre id="idt">
+</pre>
+</td>
+</tr>
+</table>
+<hr>
+<pre id="out"></pre>
+
+</body>
+</html>
