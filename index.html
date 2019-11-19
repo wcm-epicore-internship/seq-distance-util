@@ -1,4 +1,13 @@
 <html>
+<style>
+	body,table{
+		font-family: courier;
+		font-size: 12pt;
+	}
+	textarea{
+		font-size: 14pt;
+	}
+</style>
 <script>
 
 var IDTTruSeqOffset = 72;
@@ -83,7 +92,7 @@ var TruSeqMultiplex = [
 
 function printSequences(){
 	
-	var mul = "TruSeq Multiplex\n";
+	var mul = '';
 	
 	for(var i=0; i<TruSeqMultiplex.length; i++){
 		mul = mul+(TruSeqMultiplexOffset+i)+"\t"+TruSeqMultiplex[i]+"\n";
@@ -91,7 +100,7 @@ function printSequences(){
 	
 	document.getElementById("mul").innerHTML = mul;
 	
-	var idt = "IDT TruSeq\n";
+	var idt = '';
 	
 	for(var i=0; i<IDTTruSeq.length; i++){
 		idt = idt+(IDTTruSeqOffset+i)+"\t"+IDTTruSeq[i]+"\n";
@@ -100,32 +109,99 @@ function printSequences(){
 	document.getElementById("idt").innerHTML = idt;
 }
 
+function run2(){
+	var inLines = new Array();
+	var promptLines = document.getElementById("in2").value.split("\n");
+	for(var i=0; i<promptLines.length; i++){
+		inLines.push(promptLines[i].replace(/[^ACGT]/g,''));
+	}
+	
+	var acCount = new Array();
+	var gtCount = new Array();
+	var longestSequence=0;
+	document.getElementById("in2").value='';
+	
+	for(var i=0; i<inLines.length; i++){
+		if(inLines[i].length>0){
+			for(var j=0; j<inLines[i].length; j++){
+				if(acCount[j]==null){acCount[j]=0;}
+				if(gtCount[j]==null){gtCount[j]=0;}
+				switch(inLines[i].charAt(j)) {
+					case 'A':
+					case 'C':
+						acCount[j]+=1; break;
+						
+					case 'G':
+					case 'T':
+						gtCount[j]+=1; break;
+				}
+			}
+			
+			if(inLines[i].length>longestSequence){
+				longestSequence=inLines[i].length;
+			}
+			
+			document.getElementById("in2").value+=inLines[i]+"\n";
+		}
+	}
+	
+	document.getElementById("in2").value+="\n";
+	
+	document.getElementById("ac_count").value='';
+	for(var i=0; i<acCount.length; i++){
+		val=acCount[i].toString();
+		if (val.length==1){val = '0'+val;}
+		if(i!=acCount.length-1){val=val+'-';}
+		document.getElementById("ac_count").value+=val;
+	}
+	
+	document.getElementById("in2").value+="\n";
+	
+	document.getElementById("gt_count").value='';
+	for(var i=0; i<gtCount.length; i++){
+		val=gtCount[i].toString();
+		if (val.length==1){val = '0'+val;}
+		if(i!=gtCount.length-1){val=val+'-';}
+		document.getElementById("gt_count").value+=val;
+	}
+
+}
+
 function run(){
 	
-	var dist_type=0;
-	if (document.getElementById("dist_lev").checked){ dist_type=1; }
+	var inLines = new Array();
+	var promptLines = document.getElementById("in").value.split("\n");
 	
-	var inLines = document.getElementById("in").value.split('\n');
+	for(var i=0; i<promptLines.length; i++){
+		inLines.push(promptLines[i].replace(/[^ACGT]/g,''));
+	}
+	
 	var sequenceCount = inLines.length;
 	var pairs = new Array();
+	var singles = new Array();
 	var doneList = new Array();
-	var out = "Index\tSequence\tType    \tIndex\tSequence\tType    \tDistance\n";
+	var out = '';
 	
 	for(var i=0; i<sequenceCount; i++){
 		
-		for(var j=0; j<sequenceCount; j++){		
-			if(inLines[i].trim().length>0 && inLines[j].trim().length>0 && i != j && doneList.indexOf(inLines[j].trim()+"."+inLines[i].trim()) == -1){
+		var totalDistance=0;
+			
+		for(var j=0; j<sequenceCount; j++){
+			if(inLines[i].length>0 && inLines[j].length>0 && i != j
+				&& (document.getElementById("mode_hamming_pooled").checked
+				|| (!document.getElementById("mode_hamming_pooled").checked && doneList.indexOf(inLines[j]+"."+inLines[i]) == -1))){
 				
 				var pair = new Object();
-				pair.a=inLines[i].trim();
+				pair.a=inLines[i];
 				pair.aNum=i+1;
-				pair.b=inLines[j].trim();
+				pair.b=inLines[j];
 				pair.bNum=j+1;
-				if(dist_type==0){
-					pair.distance=hamDistance(pair.a,pair.b);
-				} else {
+				if(document.getElementById("mode_levenshtein").checked){
 					pair.distance=levDistance(pair.a,pair.b);
+				} else {
+					pair.distance=hamDistance(pair.a,pair.b);
 				}
+				totalDistance+=pair.distance;
 				
 				if(IDTTruSeq.indexOf(pair.a) > -1){			
 					pair.aType="[IDT-"+(IDTTruSeq.indexOf(pair.a)+IDTTruSeqOffset)+"] ";				
@@ -144,31 +220,99 @@ function run(){
 			}
 		}
 		
+		if(inLines[i].length>0){
+			var single = new Object();
+			single.a=inLines[i];
+			single.aNum=i+1;
+			single.distanceTotal=totalDistance;
+			if(IDTTruSeq.indexOf(single.a) > -1){
+				single.aType="[IDT-"+(IDTTruSeq.indexOf(single.a)+IDTTruSeqOffset)+"] ";				
+			} else if(TruSeqMultiplex.indexOf(single.a) > -1){	
+				single.aType="[MUL-"+(TruSeqMultiplex.indexOf(single.a)+TruSeqMultiplexOffset)+"] ";
+			}
+			singles.push(single);
+		}
 	}
 
-	pairs.sort(compare);
-
-	for(var i=0; i<pairs.length; i++){
-		out = out+pairs[i].aNum+"\t["+pairs[i].a+"]\t"+pairs[i].aType+"\t"+pairs[i].bNum+"\t["+pairs[i].b+"]\t"+pairs[i].bType+"\t"+pairs[i].distance+"\n";
-	}
 	
+	if(!document.getElementById("mode_hamming_pooled").checked){
+		pairs.sort(compare);
+		document.getElementById("col1").value="Index\n\n";
+		document.getElementById("col2").value="Sequence\n\n";
+		document.getElementById("col3").value="Type\n\n";
+		document.getElementById("col4").value="Index\n\n";
+		document.getElementById("col5").value="Sequence\n\n";
+		document.getElementById("col6").value="Type\n\n";
+		document.getElementById("col7").value="Distance\n\n";
+		for(var i=0; i<pairs.length; i++){
+			document.getElementById("col1").value+=pairs[i].aNum+"\n";
+			document.getElementById("col2").value+=pairs[i].a+"\n";
+			document.getElementById("col3").value+=pairs[i].aType+"\n";
+			document.getElementById("col4").value+=pairs[i].bNum+"\n";
+			document.getElementById("col5").value+=pairs[i].b+"\n";
+			document.getElementById("col6").value+=pairs[i].bType+"\n";
+			document.getElementById("col7").value+=pairs[i].distance+"\n";
+		}
+	} else {
+		singles.sort(compareTotal);
+		document.getElementById("col1").value="Index\n\n";
+		document.getElementById("col2").value="Sequence\n\n";
+		document.getElementById("col3").value="Type\n\n";
+		document.getElementById("col4").value="Total Dist.\n\n";
+		document.getElementById("col5").value='';
+		document.getElementById("col6").value='';
+		document.getElementById("col7").value='';
+		for(var i=0; i<singles.length; i++){
+			out+=singles[i].aNum+"\t["+singles[i].a+"]\t"+singles[i].aType+"\t"+singles[i].distanceTotal+"\n";
+			document.getElementById("col1").value+=singles[i].aNum+"\n";
+			document.getElementById("col2").value+=singles[i].a+"\n";
+			document.getElementById("col3").value+=singles[i].aType+"\n";
+			document.getElementById("col4").value+=singles[i].distanceTotal+"\n";
+		}
+	}
 	document.getElementById("out").innerHTML = out;
 }
 
 
 function compare(a,b) {
 	if (a.distance < b.distance)
-		return -1;
-	if (a.distance > b.distance)
 		return 1;
+	if (a.distance > b.distance)
+		return -1;
+	return 0;
+}
+
+function compareTotal(a,b) {
+	if (a.distanceTotal < b.distanceTotal)
+		return 1;
+	if (a.distanceTotal > b.distanceTotal)
+		return -1;
 	return 0;
 }
 
 function hamDistance(s, t) {
+	
+	var string1 = s.toUpperCase();
+	var string2 = t.toUpperCase();
+	
 	var d = 0;
-    for(var i=0; i < s.length; i++) {
-		if(t.charAt(i) && t.charAt(i) != s.charAt(i)) {
-			d++;
+    for(var i=0; i < string1.length; i++) {
+    	// Hamming for all characters
+		// if(t.charAt(i) && t.charAt(i) != s.charAt(i)) {
+			// d++;
+		// }
+		if(string2.charAt(i)){
+			switch(string1.charAt(i)) {
+				case 'A':
+				case 'C':
+					if(string2.charAt(i)=='G' || string2.charAt(i)=='T'){d++;}
+					break;
+				case 'G':
+				case 'T':
+					if(string2.charAt(i)=='A' || string2.charAt(i)=='C'){d++;}
+					break;
+				
+			}
 		}
 	}
     return d;
@@ -225,31 +369,58 @@ function levDistance(s, t) {
     return d[n][m];
 }
 
+
+
 </script>
-<body style="font-family: courier; font-size: 12pt;" onload="printSequences()">
+<body onload="printSequences()">
 <table cellspacing="20">
 <tr style="vertical-align: top">
-<td>
+<td style="width:300px">
 <form>
-Paste Sequences:<br/>
-<textarea rows="40" cols="20" id="in"></textarea><br/>
-<input type="radio" name="dist" checked="checked"/>Hamming</br>
-<input type="radio" name="dist" id="dist_lev"/>Levenshtein<br/>
+Paste sequences only in the box below - one sequence per line. White spaces and any characters other than ACGT are ignored.
+<br/>
+<br/>
+<textarea rows="20" cols="25" id="in"></textarea><br/>
+<input type="radio" name="distance_mode" checked="checked"/>Hamming (A+C,G+T)</br>
+<input type="radio" name="distance_mode" id="mode_hamming_pooled"/>Hamming Total (A+C,G+T)</br>
+<input type="radio" name="distance_mode" id="mode_levenshtein"/>Levenshtein<br/>(Strings of different length)<br/><br/>
 <input type="button" value="Get Distances" onclick="run()"></input>
 </form>
 </td>
-<td>
+<td style="border-left: solid 1px #000; padding-left: 50px">
+<strong>TruSeq Multiplex</strong>
 <pre id="mul">
 </pre>
 </td>
-<td>
+<td style="border-right: solid 1px #000; padding-right: 50px">
+<strong>IDT TruSeq</strong>
 <pre id="idt">
 </pre>
 </td>
 </tr>
 </table>
 <hr>
-<pre id="out"></pre>
-
+<table>
+	<tr style="vertical-align: top">
+		<td><textarea rows="200" cols="10" id="col1"></textarea></td>
+		<td><textarea rows="200" cols="16" id="col2"></textarea></td>
+		<td><textarea rows="200" cols="10" id="col3"></textarea></td>
+		<td><textarea rows="200" cols="10" id="col4"></textarea></td>
+		<td><textarea rows="200" cols="16" id="col5"></textarea></td>
+		<td><textarea rows="200" cols="10" id="col6"></textarea></td>
+		<td><textarea rows="200" cols="10" id="col7"></textarea></td>
+		<td style="width:300px">
+			Paste sequences only in the box below - one sequence per line. White spaces and any characters other than ACGT are ignored.
+		<br/>
+		<br/>
+			<textarea rows="12" cols="50" id="in2"></textarea>
+		<br/>
+		<input type="button" value="Get Counts" onclick="run2()"></input>
+		<br/>
+		A+C<br/><textarea rows="1" cols="25" id="ac_count"></textarea><br/>
+		G+T<br/><textarea rows="1" cols="25" id="gt_count"></textarea>
+		</td>
+	</tr>
+</table>
 </body>
 </html>
